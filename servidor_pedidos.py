@@ -16,9 +16,19 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/pedido":
+            # ... (seu código de leitura do body)
+            
+            # Na hora de enviar a resposta de sucesso (OK), repita os headers:
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b"OK")
 
     def do_GET(self):
         try:

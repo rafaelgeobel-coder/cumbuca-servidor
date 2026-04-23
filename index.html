@@ -668,6 +668,7 @@ END: ${endereco}`;
   
   fetch("https://cumbuca-servidor-production.up.railway.app/pedido", {
     method: "POST",
+    mode: "cors", // Adicione esta linha para forçar o modo CORS
     headers: {
       "Content-Type": "application/json"
     },
