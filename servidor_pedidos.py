@@ -15,20 +15,29 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Origin", "*") # <--- AQUI
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def do_POST(self):
         if self.path == "/pedido":
-            # ... (seu código de leitura do body)
+            # ... (seu código que lê e salva o JSON) ...
             
-            # Na hora de enviar a resposta de sucesso (OK), repita os headers:
-            self.send_response(200)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(b"OK")
+            try:
+                # ... (lógica de salvar o arquivo) ...
+
+                # AQUI É O SEGREDO:
+                self.send_response(200)
+                self.send_header("Access-Control-Allow-Origin", "*") # <--- ADICIONE ISSO
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"OK")
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Access-Control-Allow-Origin", "*") # <--- E ISSO NO ERRO TAMBÉM
+                self.end_headers()
+                self.wfile.write(str(e).encode())
 
     def do_GET(self):
         try:
