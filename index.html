@@ -666,7 +666,7 @@ END: ${endereco}`;
   
   console.log("JSON FINAL:", pedido);
   
-  fetch("http://192.168.100.13:5000/pedido", {
+  fetch("https://cumbuca-servidor-production.up.railway.app/pedido", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

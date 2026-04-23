@@ -3,58 +3,76 @@ import json
 import os
 import time
 
-PASTA = r"C:\exe4_0\pedidos_entrada"
+# Se rodar no Railway, usa o diretório atual; se rodar no PC, usa o caminho que você preferir
+if os.name == 'nt':  # Windows
+    PASTA = r"C:\exe4_0\pedidos_entrada"
+else:  # Linux (Railway)
+    PASTA = "pedidos_entrada"
+
 os.makedirs(PASTA, exist_ok=True)
 
 class Handler(BaseHTTPRequestHandler):
 
-    # 🔥 RESOLVE O ERRO OPTIONS (CORS)
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
     def do_GET(self):
         try:
-            caminho = self.path
-    
-            # 🔥 REMOVE PARÂMETROS (?t=123 etc)
-            if "?" in caminho:
-                caminho = caminho.split("?")[0]
-    
+            # Limpa o caminho de parâmetros como ?t=123
+            caminho = self.path.split("?")[0]
+
+            # 1. Rota especial para listar pedidos salvos
+            if caminho == "/pedidos":
+                arquivos = os.listdir(PASTA_PEDIDOS)
+                lista = []
+                for nome in arquivos:
+                    if nome.endswith(".json"):
+                        with open(os.path.join(PASTA_PEDIDOS, nome), "r", encoding="utf-8") as f:
+                            lista.append(json.load(f))
+                
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(lista).encode())
+                return
+
+            # 2. Servir arquivos estáticos (HTML, JSON do cardápio, Imagens)
             if caminho == "/":
                 caminho = "/index.html"
-    
-            caminho = caminho.lstrip("/")
-    
-            with open(caminho, "rb") as f:
-    
-                if caminho.endswith(".html"):
-                    content_type = "text/html"
-                elif caminho.endswith(".css"):
-                    content_type = "text/css"
-                elif caminho.endswith(".js"):
-                    content_type = "application/javascript"
-                elif caminho.endswith(".json"):
-                    content_type = "application/json"
-                elif caminho.endswith(".png"):
-                    content_type = "image/png"
-                elif caminho.endswith(".jpg") or caminho.endswith(".jpeg"):
-                    content_type = "image/jpeg"
-                else:
-                    content_type = "application/octet-stream"
-    
-                self.send_response(200)
-                self.send_header("Content-Type", content_type)
+            
+            # Remove a barra inicial para abrir o arquivo na pasta local
+            caminho_arquivo = caminho.lstrip("/")
+            
+            if os.path.exists(caminho_arquivo):
+                with open(caminho_arquivo, "rb") as f:
+                    self.send_response(200)
+                    
+                    # Define o tipo de conteúdo baseado na extensão
+                    if caminho_arquivo.endswith(".html"):
+                        self.send_header("Content-Type", "text/html")
+                    elif caminho_arquivo.endswith(".json"):
+                        self.send_header("Content-Type", "application/json")
+                    elif caminho_arquivo.endswith(".png"):
+                        self.send_header("Content-Type", "image/png")
+                    elif caminho_arquivo.endswith(".jpg") or caminho_arquivo.endswith(".jpeg"):
+                        self.send_header("Content-Type", "image/jpeg")
+                    
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(f.read())
+                return
+            else:
+                self.send_response(404)
                 self.end_headers()
-    
-                self.wfile.write(f.read())
-    
+
         except Exception as e:
-            print("Erro GET:", e)
-            self.send_response(404)
+            print("Erro no GET:", e)
+            self.send_response(500)
             self.end_headers()
 
     def do_POST(self):
@@ -64,29 +82,28 @@ class Handler(BaseHTTPRequestHandler):
 
             try:
                 pedido = json.loads(body)
-
                 nome_arquivo = f"pedido_{int(time.time() * 1000)}.json"
-                caminho = os.path.join(PASTA, nome_arquivo)
+                caminho_completo = os.path.join(PASTA_PEDIDOS, nome_arquivo)
 
-                with open(caminho, "w", encoding="utf-8") as f:
+                with open(caminho_completo, "w", encoding="utf-8") as f:
                     json.dump(pedido, f, indent=2, ensure_ascii=False)
 
                 self.send_response(200)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-
                 self.wfile.write(b"OK")
-
-                print("Pedido salvo:", caminho)
+                print("Pedido recebido e salvo em:", caminho_completo)
 
             except Exception as e:
+                print("Erro ao processar POST:", e)
                 self.send_response(500)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
-
                 self.wfile.write(str(e).encode())
 
-# 🔥 RODA SERVIDOR
-server = HTTPServer(("0.0.0.0", 5000), Handler)
-print("Servidor rodando na porta 5000...")
+# Inicialização do servidor
+PORT = int(os.environ.get("PORT", 5000))
+server = HTTPServer(("0.0.0.0", PORT), Handler)
+print(f"Servidor Sabores Cumbuca ativo na porta {PORT}")
+print(f"Acesse o site em: http://localhost:{PORT}")
 server.serve_forever()
