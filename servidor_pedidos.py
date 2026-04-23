@@ -3,48 +3,30 @@ import json
 import os
 import time
 
-# Se rodar no Railway, usa o diretório atual; se rodar no PC, usa o caminho que você preferir
-if os.name == 'nt':  # Windows
-    PASTA = r"C:\exe4_0\pedidos_entrada"
-else:  # Linux (Railway)
-    PASTA = "pedidos_entrada"
+# Configuração de Pasta (Windows vs Linux/Railway)
+if os.name == 'nt':  # Se for Windows
+    PASTA_PEDIDOS = r"C:\exe4_0\pedidos_entrada"
+else:  # Se for Railway/Linux
+    PASTA_PEDIDOS = "pedidos_entrada"
 
-os.makedirs(PASTA, exist_ok=True)
+os.makedirs(PASTA_PEDIDOS, exist_ok=True)
 
 class Handler(BaseHTTPRequestHandler):
 
+    # RESOLVE O ERRO DE SEGURANÇA (CORS) - A "permissão" para o navegador
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header("Access-Control-Allow-Origin", "*") # <--- AQUI
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
-    def do_POST(self):
-        if self.path == "/pedido":
-            # ... (seu código que lê e salva o JSON) ...
-            
-            try:
-                # ... (lógica de salvar o arquivo) ...
-
-                # AQUI É O SEGREDO:
-                self.send_response(200)
-                self.send_header("Access-Control-Allow-Origin", "*") # <--- ADICIONE ISSO
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write(b"OK")
-            except Exception as e:
-                self.send_response(500)
-                self.send_header("Access-Control-Allow-Origin", "*") # <--- E ISSO NO ERRO TAMBÉM
-                self.end_headers()
-                self.wfile.write(str(e).encode())
-
+    # TRATA O CARREGAMENTO DE IMAGENS, CARDÁPIO E LISTAGEM DE PEDIDOS
     def do_GET(self):
         try:
-            # Limpa o caminho de parâmetros como ?t=123
             caminho = self.path.split("?")[0]
 
-            # 1. Rota especial para listar pedidos salvos
+            # Rota para o script baixar_pedidos.py buscar os arquivos
             if caminho == "/pedidos":
                 arquivos = os.listdir(PASTA_PEDIDOS)
                 lista = []
@@ -60,18 +42,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(lista).encode())
                 return
 
-            # 2. Servir arquivos estáticos (HTML, JSON do cardápio, Imagens)
-            if caminho == "/":
-                caminho = "/index.html"
-            
-            # Remove a barra inicial para abrir o arquivo na pasta local
+            # Servir arquivos do site (index, imagens, json do cardápio)
             caminho_arquivo = caminho.lstrip("/")
+            if not caminho_arquivo or caminho_arquivo == "":
+                caminho_arquivo = "index.html"
             
             if os.path.exists(caminho_arquivo):
                 with open(caminho_arquivo, "rb") as f:
                     self.send_response(200)
                     
-                    # Define o tipo de conteúdo baseado na extensão
+                    # Identifica o tipo do arquivo para o navegador não bugar
                     if caminho_arquivo.endswith(".html"):
                         self.send_header("Content-Type", "text/html")
                     elif caminho_arquivo.endswith(".json"):
@@ -94,6 +74,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.end_headers()
 
+    # RECEBE E SALVA O PEDIDO DO SITE
     def do_POST(self):
         if self.path == "/pedido":
             content_length = int(self.headers.get('Content-Length', 0))
@@ -101,28 +82,30 @@ class Handler(BaseHTTPRequestHandler):
 
             try:
                 pedido = json.loads(body)
+                # Nome do arquivo com timestamp para ser único
                 nome_arquivo = f"pedido_{int(time.time() * 1000)}.json"
                 caminho_completo = os.path.join(PASTA_PEDIDOS, nome_arquivo)
 
                 with open(caminho_completo, "w", encoding="utf-8") as f:
                     json.dump(pedido, f, indent=2, ensure_ascii=False)
 
+                # RESPOSTA DE SUCESSO (Importante para o site não dar erro)
                 self.send_response(200)
                 self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Content-Type", "text/plain")
                 self.end_headers()
                 self.wfile.write(b"OK")
-                print("Pedido recebido e salvo em:", caminho_completo)
+                print(f"✅ Pedido recebido e salvo em: {caminho_completo}")
 
             except Exception as e:
-                print("Erro ao processar POST:", e)
+                print("❌ Erro ao processar pedido:", e)
                 self.send_response(500)
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(str(e).encode())
 
-# Inicialização do servidor
+# Inicialização
 PORT = int(os.environ.get("PORT", 5000))
 server = HTTPServer(("0.0.0.0", PORT), Handler)
-print(f"Servidor Sabores Cumbuca ativo na porta {PORT}")
-print(f"Acesse o site em: http://localhost:{PORT}")
+print(f"🚀 Servidor Sabores Cumbuca rodando na porta {PORT}")
 server.serve_forever()
