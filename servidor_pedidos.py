@@ -74,6 +74,23 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.end_headers()
 
+
+    def do_DELETE(self):
+        if self.path == "/limpar_pedidos":
+            try:
+                arquivos = os.listdir(PASTA_PEDIDOS)
+                for nome in arquivos:
+                    if nome.endswith(".json"):
+                        os.remove(os.path.join(PASTA_PEDIDOS, nome))
+                
+                self.send_response(200)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(b"Limpo")
+            except Exception as e:
+                self.send_response(500)
+                self.end_headers()
+
     # RECEBE E SALVA O PEDIDO DO SITE
     def do_POST(self):
         if self.path == "/pedido":
